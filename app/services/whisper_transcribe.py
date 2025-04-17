@@ -5,6 +5,7 @@ import aiohttp  # Replace requests with aiohttp for async operations
 import os
 import asyncio  # For async file operations
 import functools
+import pydub  # Add this import
 
 # Load the model once when the module is imported
 # Consider making the model choice configurable (e.g., "tiny", "base", "small", "medium", "large")
@@ -54,11 +55,13 @@ async def transcribe_audio_file(file):
 async def transcribe_audio_from_url(audio_url: str):
     """
     Asynchronously downloads an audio file from a URL and transcribes it.
+    If the audio is longer than 10 minutes, only the first 10 minutes are transcribed.
     """
     if model is None:
         raise RuntimeError("Whisper model failed to load.")
 
     tmp_path = None
+    trimmed_path = None
     try:
         print(f"Attempting to download audio from: {audio_url}")
         async with aiohttp.ClientSession() as session:
@@ -70,10 +73,24 @@ async def transcribe_audio_from_url(audio_url: str):
                     tmp_path = tmp.name
 
         print(f"Audio downloaded successfully to temporary file: {tmp_path}")
+
+        # Load and trim audio if longer than 10 minutes
+        audio = pydub.AudioSegment.from_file(tmp_path)
+        ten_minutes_ms = 10 * 60 * 1000
+        if len(audio) > ten_minutes_ms:
+            print("Audio is longer than 10 minutes. Trimming to first 10 minutes.")
+            audio = audio[:ten_minutes_ms]
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as trimmed_tmp:
+                audio.export(trimmed_tmp.name, format="mp3")
+                trimmed_path = trimmed_tmp.name
+            transcribe_path = trimmed_path
+        else:
+            transcribe_path = tmp_path
+
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
-            functools.partial(model.transcribe, tmp_path, fp16=False)
+            functools.partial(model.transcribe, transcribe_path, fp16=False)
         )
         print("Transcription complete.")
         return result['text']
@@ -84,12 +101,19 @@ async def transcribe_audio_from_url(audio_url: str):
         print(f"Error during transcription process: {e}")
         raise RuntimeError(f"Transcription failed: {e}") from e
     finally:
+        # Clean up temporary files
         if tmp_path and os.path.exists(tmp_path):
             try:
                 os.remove(tmp_path)
                 print(f"Temporary file {tmp_path} deleted.")
             except OSError as e:
                 print(f"Error deleting temporary file {tmp_path}: {e}")
+        if trimmed_path and os.path.exists(trimmed_path):
+            try:
+                os.remove(trimmed_path)
+                print(f"Temporary file {trimmed_path} deleted.")
+            except OSError as e:
+                print(f"Error deleting temporary file {trimmed_path}: {e}")
 
 # Example Usage (you wouldn't typically run this directly in the service file)
 # if __name__ == "__main__":
