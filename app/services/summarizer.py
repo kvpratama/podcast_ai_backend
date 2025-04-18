@@ -3,10 +3,10 @@ import os
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
-from langchain.chains.llm import LLMChain
-from langchain.chains.combine_documents.stuff import StuffDocumentsChain
-from langchain.docstore.document import Document
-from langchain.chains.summarize import load_summarize_chain
+# from langchain.chains.llm import LLMChain
+# from langchain.chains.combine_documents.stuff import StuffDocumentsChain
+# from langchain.docstore.document import Document
+# from langchain.chains.summarize import load_summarize_chain
 
 # Load environment variables (like GOOGLE_API_KEY)
 load_dotenv()
@@ -49,7 +49,7 @@ async def summarize_transcript_google(transcript: str) -> str:
         # docs = [Document(page_content=transcript)]
 
         # Define prompt for the 'stuff' chain
-        prompt_template = """Write a concise summary of the following podcast transcript. Remove all promotions and links.:
+        prompt_template = """Write a concise summary of the provided podcast transcript, excluding all promotions, advertisements, and external links. Focus on the main topic and the primary key takeaway, ensuring clarity and brevity:
 
         "{text}"
 

@@ -1,64 +1,96 @@
 # app/services/whisper_transcribe.py
-import whisper
+# import whisper
 import tempfile
 import aiohttp  # Replace requests with aiohttp for async operations
 import os
 import asyncio  # For async file operations
 import functools
 import pydub  # Add this import
+# from openai import OpenAI
+# import requests
+# import base64
+# from dotenv import load_dotenv
 
 # Load the model once when the module is imported
 # Consider making the model choice configurable (e.g., "tiny", "base", "small", "medium", "large")
 # Using "base" is a good balance for speed and accuracy on CPU.
-try:
-    model = whisper.load_model("tiny")
-    print("Whisper model 'tiny' loaded successfully.")
-except Exception as e:
-    print(f"Error loading Whisper model: {e}")
-    # Handle the error appropriately - maybe raise it or set model to None
-    model = None
+# try:
+#     model = whisper.load_model("tiny")
+#     print("Whisper model 'tiny' loaded successfully.")
+# except Exception as e:
+#     print(f"Error loading Whisper model: {e}")
+#     # Handle the error appropriately - maybe raise it or set model to None
+#     model = None
 
-async def transcribe_audio_file(file):
-    """
-    Asynchronously transcribes an audio file object (like FastAPI's UploadFile).
-    """
-    if model is None:
-        raise RuntimeError("Whisper model failed to load.")
+# async def transcribe_audio_file(file):
+#     """
+#     Asynchronously transcribes an audio file object (like FastAPI's UploadFile).
+#     """
+#     if model is None:
+#         raise RuntimeError("Whisper model failed to load.")
 
-    tmp_path = None
-    try:
-        # Use a temporary file for the audio
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
-            content = await file.read()  # Use await for async file read
-            tmp.write(content)
-            tmp_path = tmp.name
+#     tmp_path = None
+#     try:
+#         # Use a temporary file for the audio
+#         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+#             content = await file.read()  # Use await for async file read
+#             tmp.write(content)
+#             tmp_path = tmp.name
 
-        print(f"Transcribing temporary file: {tmp_path}")
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None,
-            functools.partial(model.transcribe, tmp_path, fp16=False)
-        )
-        print("Transcription complete.")
-        return result['text']
-    except Exception as e:
-        print(f"Error during transcription: {e}")
-        raise e
-    finally:
-        if tmp_path and os.path.exists(tmp_path):
-            try:
-                os.remove(tmp_path)
-                print(f"Temporary file {tmp_path} deleted.")
-            except OSError as e:
-                print(f"Error deleting temporary file {tmp_path}: {e}")
+#         print(f"Transcribing temporary file: {tmp_path}")
+#         loop = asyncio.get_event_loop()
+#         result = await loop.run_in_executor(
+#             None,
+#             functools.partial(model.transcribe, tmp_path, fp16=False)
+#         )
+#         print("Transcription complete.")
+#         return result['text']
+#     except Exception as e:
+#         print(f"Error during transcription: {e}")
+#         raise e
+#     finally:
+#         if tmp_path and os.path.exists(tmp_path):
+#             try:
+#                 os.remove(tmp_path)
+#                 print(f"Temporary file {tmp_path} deleted.")
+#             except OSError as e:
+#                 print(f"Error deleting temporary file {tmp_path}: {e}")
+
+# def invoke_chute(audio_b64):
+# 	api_token = os.environ['CHUTES_API_TOKEN']
+
+# 	headers = {
+# 		"Authorization": "Bearer " + api_token,
+#         "Content-Type": "application/json"
+# 	}
+	
+# 	body =     {
+#       "language": None,
+#       "audio_b64": audio_b64,
+#     }
+
+# 	response = requests.post(
+# 		"https://chutes-whisper-large-v3.chutes.ai/transcribe",
+# 		headers=headers,
+# 		json=body
+# 	)
+
+# 	# Print status code and response
+# 	print(f"Status code: {response.status_code}")
+# 	print(response.json())
+
+
 
 async def transcribe_audio_from_url(audio_url: str):
     """
     Asynchronously downloads an audio file from a URL and transcribes it.
     If the audio is longer than 10 minutes, only the first 10 minutes are transcribed.
     """
-    if model is None:
-        raise RuntimeError("Whisper model failed to load.")
+
+    model = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
+
+    # if model is None:
+    #     raise RuntimeError("Whisper model failed to load.")
 
     tmp_path = None
     trimmed_path = None
@@ -74,12 +106,12 @@ async def transcribe_audio_from_url(audio_url: str):
 
         print(f"Audio downloaded successfully to temporary file: {tmp_path}")
 
-        # Load and trim audio if longer than 10 minutes
+        # Load and trim audio if longer than 5 minutes
         audio = pydub.AudioSegment.from_file(tmp_path)
-        ten_minutes_ms = 10 * 60 * 1000
-        if len(audio) > ten_minutes_ms:
-            print("Audio is longer than 10 minutes. Trimming to first 10 minutes.")
-            audio = audio[:ten_minutes_ms]
+        five_minutes_ms = 5 * 60 * 1000
+        if len(audio) > five_minutes_ms:
+            print("Audio is longer than 5 minutes. Trimming to first 5 minutes.")
+            audio = audio[:five_minutes_ms]
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as trimmed_tmp:
                 audio.export(trimmed_tmp.name, format="mp3")
                 trimmed_path = trimmed_tmp.name
@@ -88,12 +120,27 @@ async def transcribe_audio_from_url(audio_url: str):
             transcribe_path = tmp_path
 
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None,
-            functools.partial(model.transcribe, transcribe_path, fp16=False)
-        )
+        # Open the file in binary mode for OpenAI API
+        with open(transcribe_path, "rb") as audio_file:
+
+            # Read the file content and convert to base64
+            # file_content = audio_file.read()
+            # audio_base64 = base64.b64encode(file_content).decode('utf-8')
+
+            result = await loop.run_in_executor(
+                None,
+                functools.partial(
+                    model.audio.transcriptions.create,
+                    model="whisper-1",
+                    file=audio_file,
+                    # invoke_chute,
+                    # audio_b64=audio_base64,
+                )
+            )
         print("Transcription complete.")
-        return result['text']
+        print(result)
+        print(result.json())
+        return result.json()
     except aiohttp.ClientError as e:
         print(f"Error downloading audio from URL {audio_url}: {e}")
         raise ConnectionError(f"Failed to download audio from URL: {e}") from e

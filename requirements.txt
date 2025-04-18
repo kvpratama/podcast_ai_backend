@@ -1,12 +1,6 @@
 fastapi
 uvicorn
-openai
 pydantic
-python-multipart
-openai-whisper
-ffmpeg-python
-langchain
-langchain-google-genai
-python-dotenv
 aiohttp
 pydub
+google-genai
