@@ -92,8 +92,9 @@ async def transcribe_and_summarize_from_url(audio_url: HttpUrl = Query(..., desc
         myfile = client.files.upload(file=transcribe_path)
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash-lite", contents=["Summarize the core argument and central conclusion of the provided audio file, omitting all promotional material, advertisements, sponsor mentions, and website/social media references. Prioritize conciseness and clarity, distilling the essence of the discussion into a brief, easily understandable summary that highlights the main subject matter and its ultimate point.", myfile]
+            model="gemini-2.0-flash-lite", contents=["Summarize the core argument and central conclusion of the provided podcast episode, excluding all promotional content, advertisements, sponsor mentions, and external references (websites, social media, etc.). Focus on extracting the substantive discussion, distilling its essence into a concise, easily understandable summary that highlights the primary subject matter and its ultimate conclusion, even if the provided episode represents a truncated or edited version of the original broadcast. Prioritize clarity and conciseness, ensuring the summary accurately reflects the central thesis and final takeaway.", myfile]
         )
+        
 
         print(response.text)
 
